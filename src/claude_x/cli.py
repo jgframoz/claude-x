@@ -8,17 +8,28 @@ so no command can spend money or publish by accident before then.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import replace
+from pathlib import Path
 from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
-from . import __version__, auth
+from . import __version__, auth, policy
 from .client import XClient
-from .config import REDIRECT_URI, SCOPES, Config, load_config
+from .config import (
+    COST_PER_POST_USD,
+    COST_PER_POST_WITH_LINK_USD,
+    REDIRECT_URI,
+    SCOPES,
+    Config,
+    load_config,
+)
 from .errors import AuthError, ClaudeXError
+from .publisher import PostLog, Publisher
 
 app = typer.Typer(
     name="claude-x",
@@ -158,6 +169,141 @@ def auth_logout(ctx: typer.Context) -> None:
     """Delete the stored tokens from this machine."""
     auth.logout(get_config(ctx))
     console.print("Stored tokens deleted.")
+
+
+def _read_draft(text: str | None, file: Path | None) -> str:
+    """Take the draft from --text, --file, or stdin, in that order."""
+    if text is not None and file is not None:
+        raise ClaudeXError("Pass --text or --file, not both.")
+    if text is not None:
+        return text
+    if file is not None:
+        if not file.is_file():
+            raise ClaudeXError(f"No such file: {file}")
+        return file.read_text(encoding="utf-8")
+    if not sys.stdin.isatty():
+        return sys.stdin.read()
+    raise ClaudeXError("Nothing to post. Use --text, --file, or pipe the draft on stdin.")
+
+
+def _render_preview(parts: list[str]) -> float:
+    """Show what will be published and return the total cost."""
+    total = sum(policy.estimate_cost(part) for part in parts)
+
+    for index, part in enumerate(parts, start=1):
+        length = policy.weighted_length(part)
+        heading = f"part {index}/{len(parts)}" if len(parts) > 1 else "post"
+        over = length > policy.MAX_WEIGHTED_LENGTH
+        console.print(
+            Panel(
+                part,
+                title=heading,
+                subtitle=(
+                    f"[{'red' if over else 'dim'}]{length}/{policy.MAX_WEIGHTED_LENGTH}"
+                    f"[/{'red' if over else 'dim'}]"
+                ),
+                subtitle_align="right",
+                border_style="red" if over else "cyan",
+            )
+        )
+        if policy.contains_link(part):
+            console.print(
+                f"  [yellow]contains a link[/yellow] — costs "
+                f"${COST_PER_POST_WITH_LINK_USD:.2f} instead of "
+                f"${COST_PER_POST_USD:.3f}"
+            )
+
+    console.print(f"\nEstimated cost: [bold]${total:.3f}[/bold]")
+    return total
+
+
+@app.command()
+def post(
+    ctx: typer.Context,
+    text: Annotated[str | None, typer.Option("--text", "-t", help="Draft text.")] = None,
+    file: Annotated[
+        Path | None, typer.Option("--file", "-f", help="Read the draft from a file.")
+    ] = None,
+    thread: Annotated[
+        bool,
+        typer.Option("--thread", help="Split the draft into a thread on lines containing '---'."),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            help="Skip the confirmation prompt. For interactive use by you — "
+            "agents must never pass this.",
+        ),
+    ] = False,
+) -> None:
+    """Publish a draft, after showing you exactly what will go out.
+
+    Dry run by default: you'll see the preview and the cost, and nothing is
+    sent. Add --live to actually publish.
+    """
+    config = get_config(ctx)
+    draft = _read_draft(text, file)
+
+    parts = policy.split_thread(draft) if thread else [draft.strip()]
+    if not parts:
+        raise ClaudeXError("The draft is empty.")
+
+    _render_preview(parts)
+
+    if config.dry_run:
+        console.print(
+            "\n[yellow]Dry run — nothing was sent.[/yellow] Re-run with "
+            "[bold]--live[/bold] to publish."
+        )
+        return
+
+    if not yes:
+        console.print()
+        answer = typer.prompt("Type 'post' to publish, anything else to cancel", default="")
+        if answer.strip().casefold() != "post":
+            console.print("[dim]Cancelled. Nothing was sent.[/dim]")
+            raise typer.Exit(code=1)
+
+    with Publisher(config) as publisher:
+        published = (
+            publisher.publish_thread(parts) if len(parts) > 1 else [publisher.publish(parts[0])]
+        )
+
+    console.print()
+    for item in published:
+        console.print(f"[green]published[/green] {item.url}")
+    spent = sum(item.cost_usd for item in published)
+    console.print(f"[dim]spent ~${spent:.3f}[/dim]")
+
+
+@app.command()
+def history(
+    ctx: typer.Context,
+    limit: Annotated[int, typer.Option("--limit", "-n", help="How many to show.")] = 10,
+) -> None:
+    """Show what this tool has published."""
+    records = PostLog(get_config(ctx)).all()
+    if not records:
+        console.print("[dim]Nothing published yet.[/dim]")
+        return
+
+    table = Table(box=None, padding=(0, 2))
+    table.add_column("when", style="dim")
+    table.add_column("text")
+    table.add_column("cost", justify="right", style="dim")
+
+    for record in records[-limit:]:
+        preview = record.get("text", "").replace("\n", " ")
+        if len(preview) > 60:
+            preview = preview[:57] + "…"
+        marker = " [yellow](dry)[/yellow]" if record.get("dry_run") else ""
+        table.add_row(
+            record.get("posted_at", "?"),
+            preview + marker,
+            f"${record.get('cost_usd', 0):.3f}",
+        )
+    console.print(table)
 
 
 def run() -> None:

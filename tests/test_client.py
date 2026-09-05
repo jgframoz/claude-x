@@ -144,11 +144,12 @@ def test_api_errors_carry_the_status_code(live_config, httpx_mock):
 # --- Compliance ---------------------------------------------------------
 
 
-def test_client_exposes_no_way_to_reply_to_someone_else():
-    """The absence of reply-posting is the compliance argument — guard it.
+def test_client_write_surface_stays_minimal():
+    """Pin the API surface so reply capability can't creep in unnoticed.
 
-    If a future change adds reply capability, this test should fail and the
-    author should re-read X's automation rules before deleting it.
+    create_tweet accepts a reply target for threading, but the *authorisation*
+    to use it lives in Publisher, which checks the target is our own post.
+    If this test fails, re-read X's automation rules before widening anything.
     """
     public_methods = {name for name in dir(XClient) if not name.startswith("_")}
 
@@ -163,4 +164,20 @@ def test_client_exposes_no_way_to_reply_to_someone_else():
     import inspect
 
     signature = inspect.signature(XClient.create_tweet)
-    assert set(signature.parameters) == {"self", "text"}
+    assert set(signature.parameters) == {"self", "text", "in_reply_to_tweet_id"}
+
+
+def test_reply_target_is_sent_in_the_shape_the_api_expects(live_config, httpx_mock):
+    httpx_mock.add_response(
+        url=f"{API_BASE}/tweets", method="POST", json={"data": {"id": "2", "text": "part two"}}
+    )
+
+    with XClient(live_config) as client:
+        client.create_tweet("part two", in_reply_to_tweet_id="1")
+
+    import json as json_module
+
+    assert json_module.loads(httpx_mock.get_request().content) == {
+        "text": "part two",
+        "reply": {"in_reply_to_tweet_id": "1"},
+    }

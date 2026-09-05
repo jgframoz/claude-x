@@ -60,11 +60,19 @@ Every command runs in dry-run mode by default — no network calls, no spending.
 Pass `--live` when you actually mean it.
 
 ```bash
-claude-x config     # show resolved config (credential values are never printed)
-claude-x version
+claude-x auth login          # authorise via your browser (one time)
+claude-x auth status         # check stored credentials
+
+claude-x post --text "..."   # preview a draft and its cost
+claude-x post --file draft.md
+cat draft.md | claude-x post --thread   # split on lines containing '---'
+
+claude-x --live post --file draft.md    # actually publish
+claude-x history             # what has been published
 ```
 
-More commands land with the phases below.
+Publishing asks you to type `post` to confirm. `--yes` skips that prompt —
+it exists for your own interactive use, and the Claude Code skill never passes it.
 
 ## Costs
 
@@ -81,8 +89,8 @@ Development and tests never hit the network.
 ## Roadmap
 
 - [x] **Phase 0** — scaffolding, config, storage, CLI skeleton, CI
-- [ ] **Phase 1** — OAuth 2.0 PKCE auth + X API client
-- [ ] **Phase 2** — draft → preview → approve → post
+- [x] **Phase 1** — OAuth 2.0 PKCE auth + X API client
+- [x] **Phase 2** — draft → preview → approve → post, with threads
 - [ ] **Phase 3** — the Claude Code skill (drafting in your voice)
 - [ ] **Phase 4** — mentions → reply suggestions
 - [ ] **Phase 5** — performance tracking fed back into drafting

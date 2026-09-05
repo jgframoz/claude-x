@@ -80,17 +80,25 @@ class XClient:
             return _load_fixture("me")
         return self._request("GET", "/users/me")
 
-    def create_tweet(self, text: str) -> dict[str, Any]:
+    def create_tweet(self, text: str, *, in_reply_to_tweet_id: str | None = None) -> dict[str, Any]:
         """Publish a post. This is the only write this client can perform.
 
-        Threading (replying to your own post) arrives in Phase 2 alongside the
-        ownership guard that keeps it from becoming a general reply capability.
+        `in_reply_to_tweet_id` exists for threading — chaining onto your own
+        post. This layer does not check whose post it is; `Publisher` does that
+        before calling here, because it owns the post log that knows. Do not
+        call this directly to reply to arbitrary posts.
         """
         if self.config.dry_run:
             fixture = _load_fixture("created_tweet")
             fixture["data"]["text"] = text
+            # Vary the id so threads in dry run don't all collide on one value.
+            fixture["data"]["id"] = f"dryrun-{abs(hash(text)) % 10**18:018d}"
             return fixture
-        return self._request("POST", "/tweets", json={"text": text})
+
+        payload: dict[str, Any] = {"text": text}
+        if in_reply_to_tweet_id is not None:
+            payload["reply"] = {"in_reply_to_tweet_id": in_reply_to_tweet_id}
+        return self._request("POST", "/tweets", json=payload)
 
     def get_mentions(
         self, user_id: str, *, since_id: str | None = None, max_results: int = 25
