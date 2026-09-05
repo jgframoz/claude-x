@@ -1,2 +1,18 @@
 # Plans are local-only in this public repo — never commit them.
 /plans/
+
+# Credentials — never commit.
+.env
+.env.local
+.env.*.local
+*.pem
+tokens.json
+.claude-x/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
