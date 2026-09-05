@@ -39,3 +39,32 @@ def test_config_never_prints_the_client_id_value(monkeypatch):
 def test_no_args_shows_help():
     result = runner.invoke(app, [])
     assert "claude-x" in result.stdout
+
+
+def test_dry_run_rejects_an_em_dash_before_the_live_attempt():
+    """A rehearsal must fail on style, or the agent thinks the draft is fine."""
+    result = runner.invoke(app, ["post", "--text", "built a thing — it works"])
+
+    assert result.exit_code != 0
+
+
+def test_dry_run_rejects_an_overlong_draft():
+    result = runner.invoke(app, ["post", "--text", "a" * 281])
+
+    assert result.exit_code != 0
+
+
+def test_entry_point_uses_the_error_handling_wrapper():
+    """pyproject's console script must point at run(), not app().
+
+    Pointing it at app() bypasses ClaudeXError handling and users get a
+    traceback instead of a message. That regression is invisible in tests
+    that call app() directly, so assert on the packaging metadata.
+    """
+    import tomllib
+    from pathlib import Path
+
+    pyproject = Path(__file__).parent.parent / "pyproject.toml"
+    scripts = tomllib.loads(pyproject.read_text())["project"]["scripts"]
+
+    assert scripts["claude-x"] == "claude_x.cli:run"

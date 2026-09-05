@@ -34,7 +34,9 @@ dev = [
 ]
 
 [project.scripts]
-claude-x = "claude_x.cli:app"
+# Points at run(), not app(), so deliberate errors render as a message instead
+# of a traceback. Pointing this at app() silently disables that handling.
+claude-x = "claude_x.cli:run"
 
 [project.urls]
 Repository = "https://github.com/jgframoz/claude-x"

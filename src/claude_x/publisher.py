@@ -101,6 +101,7 @@ class Publisher:
     def publish(self, text: str, *, in_reply_to: str | None = None) -> PublishedPost:
         """Publish a single post. Assumes approval already happened."""
         policy.check_length(text)
+        policy.check_style(text)
 
         if in_reply_to is not None:
             self._guard_reply_target(in_reply_to)
@@ -138,6 +139,7 @@ class Publisher:
         """
         for part in parts:
             policy.check_length(part)
+            policy.check_style(part)
 
         published: list[PublishedPost] = []
         previous_id: str | None = None

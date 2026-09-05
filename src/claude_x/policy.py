@@ -66,6 +66,22 @@ def check_length(text: str) -> None:
         )
 
 
+# Em dash and en dash. The user's rule: these read as machine-written, so they
+# never go out. Enforced here rather than left to the drafting agent, because
+# prose instructions get forgotten and this one is absolute.
+_DASHES = {"—": "em dash", "–": "en dash"}
+
+
+def check_style(text: str) -> None:
+    for character, name in _DASHES.items():
+        if character in text:
+            raise PolicyError(
+                f"Draft contains an {name} ({character}), which reads as AI-written. "
+                "Use a period, comma, colon, or parentheses instead. "
+                "If a sentence needs a dash, it is usually two sentences."
+            )
+
+
 def split_thread(text: str) -> list[str]:
     """Split a draft into thread parts on a line containing only '---'."""
     parts = [part.strip() for part in re.split(r"^\s*---\s*$", text, flags=re.MULTILINE)]

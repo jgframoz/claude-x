@@ -249,6 +249,13 @@ def post(
     if not parts:
         raise ClaudeXError("The draft is empty.")
 
+    # Validate before previewing, and in dry run too. Otherwise a rehearsal
+    # looks clean and only the live attempt fails, which is the worst moment
+    # to discover a problem.
+    for part in parts:
+        policy.check_length(part)
+        policy.check_style(part)
+
     _render_preview(parts)
 
     if config.dry_run:
@@ -334,12 +341,17 @@ def history(
 
 
 def run() -> None:
-    """Wrapper that renders deliberate errors without a traceback."""
+    """Wrapper that renders deliberate errors without a traceback.
+
+    Exits via sys.exit rather than typer.Exit: outside a command invocation
+    typer.Exit is just an uncaught exception, which is the traceback this
+    wrapper exists to prevent.
+    """
     try:
         app()
     except ClaudeXError as exc:
         err_console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
+        sys.exit(1)
 
 
 if __name__ == "__main__":  # pragma: no cover

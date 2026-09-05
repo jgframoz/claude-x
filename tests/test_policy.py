@@ -81,3 +81,23 @@ def test_split_thread_drops_empty_sections():
 
 def test_split_thread_on_a_single_post_returns_one_part():
     assert policy.split_thread("just one") == ["just one"]
+
+
+def test_em_dash_is_refused():
+    """The user's hardest style rule: dashes read as machine-written."""
+    with pytest.raises(PolicyError, match="em dash"):
+        policy.check_style("Built a thing — it works well")
+
+
+def test_en_dash_is_refused():
+    with pytest.raises(PolicyError, match="en dash"):
+        policy.check_style("Took 3–4 hours")
+
+
+def test_ordinary_punctuation_passes():
+    policy.check_style("Built a thing. It works well, mostly (see the caveats).")
+
+
+def test_hyphens_are_fine():
+    """A hyphen is not a dash. Compound words must still work."""
+    policy.check_style("A well-tested, keyword-triggered reply bot is still banned.")

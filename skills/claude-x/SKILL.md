@@ -54,6 +54,11 @@ and let them choose.
 Length: 280 characters, where a link counts as 23 no matter how long it is. Over
 that, offer a thread with `---` between parts rather than silently trimming.
 
+**Never use an em dash or en dash.** The CLI refuses drafts containing them, so
+a draft with one is simply wasted work. Use a period, comma, colon, or
+parentheses. Write in standard US English. `claude-x voice` has the full list of
+constructions to avoid.
+
 ### Cost
 
 A plain post is $0.015. **A post containing a link is $0.20** — 13x. That is not
