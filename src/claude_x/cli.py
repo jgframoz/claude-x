@@ -8,8 +8,9 @@ so no command can spend money or publish by accident before then.
 
 from __future__ import annotations
 
+import json
 import sys
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Annotated
 
@@ -18,7 +19,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import __version__, auth, policy, voice
+from . import __version__, auth, mentions, policy, triage, voice
 from .client import XClient
 from .config import (
     COST_PER_POST_USD,
@@ -323,6 +324,124 @@ def post(
         console.print(f"[green]published[/green] {item.url}")
     spent = sum(item.cost_usd for item in published)
     console.print(f"[dim]spent ~${spent:.3f}[/dim]")
+
+
+@app.command(name="mentions")
+def show_mentions(
+    ctx: typer.Context,
+    fetch: Annotated[
+        bool,
+        typer.Option(
+            "--fetch/--no-fetch",
+            help="Ask X for new mentions. Reads are billed, so --no-fetch just "
+            "shows what is already stored.",
+        ),
+    ] = True,
+    show_all: Annotated[
+        bool, typer.Option("--all", help="Include mentions already marked handled.")
+    ] = False,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Machine-readable output, for agents.")
+    ] = False,
+    spam: Annotated[
+        bool,
+        typer.Option("--spam", help="Show only what was set aside as likely spam."),
+    ] = False,
+    mark_handled: Annotated[
+        str | None,
+        typer.Option("--mark-handled", metavar="ID", help="Mark a mention as dealt with."),
+    ] = None,
+    forget: Annotated[
+        str | None,
+        typer.Option(
+            "--forget",
+            metavar="ID",
+            help="Delete a stored mention locally, e.g. once it is deleted on X.",
+        ),
+    ] = None,
+) -> None:
+    """Show posts mentioning you, so replies can be drafted for you to send.
+
+    This command never sends anything. Automated replies to other people need
+    prior written approval from X, so you send them yourself.
+    """
+    config = get_config(ctx)
+    log = mentions.MentionLog(config)
+
+    if mark_handled:
+        found = log.mark_handled(mark_handled)
+        console.print(
+            f"Marked {mark_handled} as handled."
+            if found
+            else f"[yellow]No stored mention with id {mark_handled}.[/yellow]"
+        )
+        return
+
+    if forget:
+        removed = log.forget(forget)
+        console.print(f"Removed {removed} stored record(s) for {forget}.")
+        return
+
+    fetched: list[mentions.Mention] = []
+    if fetch:
+        with XClient(config) as client:
+            fetched = mentions.fetch_new(config, client)
+        if config.dry_run:
+            console.print("[dim]Dry run: fixture data, nothing fetched and nothing stored.[/dim]\n")
+        elif fetched:
+            console.print(f"[green]{len(fetched)} new.[/green]\n")
+
+    # Dry runs store nothing, so show what the fetch returned rather than the log.
+    stored = log.all() if show_all else log.unhandled()
+    items = fetched if (config.dry_run and fetch) else stored
+
+    # Sort rather than delete: a wrongly buried mention costs a conversation.
+    triaged = [(item, *triage.classify(item.text)) for item in items]
+    junk = [(item, reason) for item, is_spam, reason in triaged if is_spam]
+    real = [item for item, is_spam, _ in triaged if not is_spam]
+
+    if spam:
+        if not junk:
+            console.print("[dim]Nothing set aside.[/dim]")
+            return
+        for item, reason in junk:
+            console.print(f"[dim]@{item.username} · {reason}[/dim]")
+            console.print(f"[dim]  {item.url}[/dim]")
+            console.print(f"[dim]  {item.text[:120]}[/dim]\n")
+        return
+
+    items = real
+
+    if as_json:
+        # Plain stdout: this output is for an agent to parse.
+        print(
+            json.dumps(
+                [{**asdict(item), "url": item.url} for item in real],
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return
+
+    if not items:
+        console.print("[dim]No mentions waiting.[/dim]")
+        if junk:
+            console.print(f"[dim]{len(junk)} set aside as likely spam (--spam to see).[/dim]")
+        return
+
+    for item in items:
+        flag = " [dim](handled)[/dim]" if item.handled else ""
+        console.print(f"[bold]@{item.username}[/bold] · {item.created_at}{flag}")
+        console.print(f"  {item.url}")
+        console.print(f"  id: {item.id}")
+        console.print(f"  {item.text}\n")
+
+    if junk:
+        console.print(f"[dim]{len(junk)} set aside as likely spam (--spam to see).[/dim]")
+    console.print(
+        "[dim]Drafts only. Send replies yourself, then run "
+        "`claude-x mentions --mark-handled <id>`.[/dim]"
+    )
 
 
 @app.command(name="voice")

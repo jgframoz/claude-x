@@ -140,8 +140,21 @@ Development and tests never hit the network.
 - [x] **Phase 1** — OAuth 2.0 PKCE auth + X API client
 - [x] **Phase 2** — draft → preview → approve → post, with threads
 - [x] **Phase 3** — the Claude Code skill (drafting in your voice)
-- [ ] **Phase 4** — mentions → reply suggestions
+- [x] **Phase 4** — mentions → reply suggestions, with spam triage
 - [ ] **Phase 5** — performance tracking fed back into drafting
+
+## Mentions
+
+`claude-x mentions` fetches posts mentioning you so Claude can draft replies you
+then send yourself. It cannot send them, and there is no flag that makes it.
+
+Reads are billed, so it only asks for what it hasn't seen, and it doesn't poll.
+
+Most of what arrives is spam. The first live fetch on a ~100 follower account
+returned 25 mentions, all crypto spam, so mentions are triaged before you see
+them: mass-tagging, known phrases, Cyrillic lookalike characters (spammers write
+"Аirdrоp" to dodge keyword filters), and bare links with no message. Nothing is
+deleted, only sorted, and `--spam` shows what was set aside with the reason.
 
 ## Data
 

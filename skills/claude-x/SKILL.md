@@ -98,17 +98,40 @@ thread means some parts are already public and the user needs to know which.
 
 ## Mentions and replies
 
-`claude-x mentions` fetches posts mentioning the user. You may **draft suggested
-replies** for them. You may **not** post replies.
+You may **draft suggested replies**. You may **not** post replies. There is no
+command that would let you, and that absence is deliberate.
 
 This is not a limitation to work around. Automated replies to other people
 require prior written approval from X, and keyword-triggered reply bots are
-banned outright — an account doing either can be suspended. The user sends
-replies by hand; that is the design. Output suggestions as copy-paste-ready text
-with a link to each mention.
+banned outright. An account doing either can be suspended, and the account is
+the whole point. If the user asks you to automate replying, explain why the tool
+doesn't do it rather than looking for a workaround.
 
-If the user asks you to automate replying, explain why the tool doesn't do it
-rather than looking for a workaround.
+Workflow:
+
+```bash
+claude-x --live mentions --json     # fetch and list what's waiting
+```
+
+Reads are billed, so don't poll. Fetch when the user asks, not on a timer. Use
+`--no-fetch` to re-read what's already stored without paying again.
+
+For each mention, draft a reply in the user's voice and present it as
+copy-paste-ready text next to the mention's URL, so they can open it and send.
+Say plainly that they need to send it themselves.
+
+Judgment matters here. Not every mention deserves a reply, and a bland "thanks
+so much!" is worse than silence. If someone asks a real question, answer it. If
+someone is hostile or baiting, say so and suggest not replying.
+
+Once the user has sent a reply, mark it so it stops resurfacing:
+
+```bash
+claude-x mentions --mark-handled <id>
+```
+
+If a mention is deleted on X, remove the local copy with
+`claude-x mentions --forget <id>`. X's developer agreement requires it.
 
 ## What not to do
 
