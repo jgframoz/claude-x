@@ -42,6 +42,11 @@ Repository = "https://github.com/jgframoz/claude-x"
 [tool.hatch.build.targets.wheel]
 packages = ["src/claude_x"]
 
+# Ship the voice guide inside the package so `claude-x voice` can seed it on a
+# machine that has no checkout. The repo root copy stays the single source.
+[tool.hatch.build.targets.wheel.force-include]
+"VOICE.md" = "claude_x/data/VOICE.md"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

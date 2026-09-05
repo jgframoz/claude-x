@@ -21,8 +21,11 @@ sends nothing.
 
 ## Before drafting
 
-1. **Read `VOICE.md`** in the repo root. Every draft has to sound like the
-   person described there. If a draft would embarrass them, rewrite it.
+Everything you need comes from the CLI, so none of this depends on which
+directory the session started in.
+
+1. **Run `claude-x voice`.** Every draft has to sound like the person described
+   there. If a draft would embarrass them, rewrite it.
 2. **Run `claude-x history -n 20`.** Two reasons: don't repeat a point they
    already made, and don't repeat a sentence structure they used two posts ago.
    Repetition is what makes an account read as automated.
@@ -30,6 +33,10 @@ sends nothing.
    the bug that took three hours, the assumption that turned out wrong, the
    number that surprised them. Pull it from the session, the diff, or ask. Vague
    posts are the failure mode.
+
+If `claude-x` is not on PATH, say so and stop rather than drafting blind — the
+install is one command, in the repo README. Don't fall back to guessing at their
+voice.
 
 ## Drafting
 

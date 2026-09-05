@@ -80,23 +80,35 @@ The point of this project: Claude drafts in your voice, you approve, the CLI
 publishes. The drafting intelligence is your Claude Code session — there is no
 LLM API key here.
 
-Install it for your user account:
+Install the CLI onto your PATH and the skill into your Claude Code skills
+directory — both are needed, and the skill will tell you if the CLI is missing
+rather than drafting blind:
 
 ```bash
+ln -s "$PWD/.venv/bin/claude-x" ~/.local/bin/claude-x
 ln -s "$PWD/skills/claude-x" ~/.claude/skills/claude-x
 ```
+
+(`~/.local/bin` must be on your PATH. Use `pipx install .` instead if you prefer.)
 
 Then in any Claude Code session — including from your phone via
 `claude remote-control` — just say what you want:
 
 > draft a tweet about the auth flow I just finished
 
-Claude reads [`VOICE.md`](VOICE.md), checks `claude-x history` so it doesn't
-repeat you, and offers two drafts with different angles. Nothing publishes until
+Claude runs `claude-x voice` and `claude-x history` — so it works from any
+directory, not just this repo — reading your voice guide and avoiding repeating
+what you already posted, and offers two drafts with different angles. Nothing publishes until
 you say so in that same turn.
 
-**`VOICE.md` is the highest-leverage file in this repo.** Every draft is
-downstream of it — edit it until the drafts sound like you.
+**Your voice guide is the highest-leverage file here.** It's seeded from
+[`VOICE.md`](VOICE.md) into `~/.claude-x/VOICE.md` on first use — edit that copy
+until the drafts sound like you:
+
+```bash
+claude-x voice --path    # where it lives
+claude-x voice           # what the agent reads
+```
 
 ## Costs
 

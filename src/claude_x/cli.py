@@ -18,7 +18,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import __version__, auth, policy
+from . import __version__, auth, policy, voice
 from .client import XClient
 from .config import (
     COST_PER_POST_USD,
@@ -275,6 +275,26 @@ def post(
         console.print(f"[green]published[/green] {item.url}")
     spent = sum(item.cost_usd for item in published)
     console.print(f"[dim]spent ~${spent:.3f}[/dim]")
+
+
+@app.command(name="voice")
+def show_voice(
+    ctx: typer.Context,
+    path_only: Annotated[
+        bool, typer.Option("--path", help="Print the file location instead of its contents.")
+    ] = False,
+) -> None:
+    """Print the voice guide drafts should follow.
+
+    Created from a template on first use. Works from any directory, which is why
+    the skill reads it through this command rather than by relative path.
+    """
+    config = get_config(ctx)
+    if path_only:
+        console.print(str(voice.ensure_voice(config)))
+        return
+    # Plain stdout: this is meant to be read by an agent, not rendered.
+    print(voice.read_voice(config))
 
 
 @app.command()
