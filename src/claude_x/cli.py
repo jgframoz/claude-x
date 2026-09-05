@@ -29,7 +29,13 @@ from .config import (
     load_config,
 )
 from .errors import AuthError, ClaudeXError
-from .publisher import PostLog, Publisher
+from .publisher import (
+    APPROVAL_HUMAN_FLAG,
+    APPROVAL_INTERACTIVE,
+    APPROVAL_RELAYED,
+    PostLog,
+    Publisher,
+)
 
 app = typer.Typer(
     name="claude-x",
@@ -217,6 +223,36 @@ def _render_preview(parts: list[str]) -> float:
     return total
 
 
+def _establish_approval(*, yes: bool, approved: bool) -> str:
+    """Work out how this publish was approved, or refuse to proceed.
+
+    No flag can prove a human agreed; the caller asserts it. What this buys is
+    an unambiguous instruction for an agent (which would otherwise have to
+    choose between a rule saying "never pass --yes" and a prompt it cannot
+    answer) and a recorded route in the history.
+    """
+    if approved:
+        return APPROVAL_RELAYED
+    if yes:
+        return APPROVAL_HUMAN_FLAG
+
+    if not sys.stdin.isatty():
+        # Hanging on a prompt nobody can answer is the worst outcome here.
+        raise ClaudeXError(
+            "Refusing to publish: no confirmation is possible without a terminal.\n"
+            "If you are a person scripting this, pass --yes.\n"
+            "If you are an agent, pass --approved, and only when the user has "
+            "approved this exact text in the current turn."
+        )
+
+    console.print()
+    answer = typer.prompt("Type 'post' to publish, anything else to cancel", default="")
+    if answer.strip().casefold() != "post":
+        console.print("[dim]Cancelled. Nothing was sent.[/dim]")
+        raise typer.Exit(code=1)
+    return APPROVAL_INTERACTIVE
+
+
 @app.command()
 def post(
     ctx: typer.Context,
@@ -232,8 +268,16 @@ def post(
         bool,
         typer.Option(
             "--yes",
-            help="Skip the confirmation prompt. For interactive use by you — "
-            "agents must never pass this.",
+            help="Skip the prompt because you, a human, already decided. "
+            "Agents: use --approved instead.",
+        ),
+    ] = False,
+    approved: Annotated[
+        bool,
+        typer.Option(
+            "--approved",
+            help="For agents: the user approved this exact text in the current "
+            "conversation turn. Recorded in the history as agent-relayed.",
         ),
     ] = False,
 ) -> None:
@@ -265,16 +309,13 @@ def post(
         )
         return
 
-    if not yes:
-        console.print()
-        answer = typer.prompt("Type 'post' to publish, anything else to cancel", default="")
-        if answer.strip().casefold() != "post":
-            console.print("[dim]Cancelled. Nothing was sent.[/dim]")
-            raise typer.Exit(code=1)
+    approval = _establish_approval(yes=yes, approved=approved)
 
     with Publisher(config) as publisher:
         published = (
-            publisher.publish_thread(parts) if len(parts) > 1 else [publisher.publish(parts[0])]
+            publisher.publish_thread(parts, approval=approval)
+            if len(parts) > 1
+            else [publisher.publish(parts[0], approval=approval)]
         )
 
     console.print()
@@ -319,6 +360,7 @@ def history(
     table.add_column("when", style="dim")
     table.add_column("text")
     table.add_column("cost", justify="right", style="dim")
+    table.add_column("approved", style="dim")
 
     for record in records[-limit:]:
         preview = record.get("text", "").replace("\n", " ")
@@ -329,6 +371,7 @@ def history(
             record.get("posted_at", "?"),
             preview + marker,
             f"${record.get('cost_usd', 0):.3f}",
+            "" if record.get("dry_run") else record.get("approval", "unrecorded"),
         )
     console.print(table)
 

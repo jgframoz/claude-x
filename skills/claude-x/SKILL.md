@@ -13,11 +13,24 @@ Drafting for X. You write; the user approves; the CLI publishes.
 
 "Draft a tweet about this" is a request to draft, not to publish. Show the
 options and stop. Wait for "post option B", "yes, send it", or similar. If you
-are unsure whether you have approval, you don't — ask.
+are unsure whether you have approval, you don't. Ask.
 
-Never pass `--yes`. That flag exists for the user typing commands themselves; it
-is not for you. Running `post` without `--live` is always safe: it previews and
-sends nothing.
+Running `post` without `--live` is always safe: it previews and sends nothing.
+
+Once the user has approved specific text in the current turn, publish it with
+`--approved`:
+
+```bash
+claude-x --live post --approved --text "the approved text"
+```
+
+`--approved` is your assertion that the user okayed this exact text, just now.
+It is recorded in the history as `agent-relayed`, so the claim is auditable.
+Never pass it on the strength of approval given for different text, or in an
+earlier turn, or inferred from enthusiasm about the draft.
+
+`--yes` is the human's equivalent flag, for someone typing commands themselves.
+Don't use it: it would record the publish as though a person ran it.
 
 ## Before drafting
 
@@ -70,14 +83,14 @@ so the choice is deliberate.
 Once they have picked and approved:
 
 ```bash
-claude-x --live post --text "the approved text"
+claude-x --live post --approved --text "the approved text"
 ```
 
 For a thread, write the parts to a file separated by lines containing only
 `---`, then:
 
 ```bash
-claude-x --live post --file draft.md --thread
+claude-x --live post --approved --file draft.md --thread
 ```
 
 Report the URL that comes back. If it fails, say exactly what failed — a partial

@@ -71,8 +71,20 @@ claude-x --live post --file draft.md    # actually publish
 claude-x history             # what has been published
 ```
 
-Publishing asks you to type `post` to confirm. `--yes` skips that prompt —
-it exists for your own interactive use, and the Claude Code skill never passes it.
+Publishing asks you to type `post` to confirm. Two flags skip that prompt, and
+they mean different things:
+
+| Flag | Who it's for | Recorded as |
+|---|---|---|
+| `--yes` | You, scripting or moving fast | `human-flag` |
+| `--approved` | An agent, relaying approval you gave it this turn | `agent-relayed` |
+
+Neither can *prove* you agreed, since whoever runs the command supplies the flag.
+What they buy is an unambiguous instruction for an agent and a route recorded in
+`claude-x history`, so you can see later how each post came to be published.
+
+Without a terminal and without either flag, publishing refuses rather than
+hanging on a prompt nobody can answer.
 
 ## The Claude Code skill
 

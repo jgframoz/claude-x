@@ -41,9 +41,19 @@ def test_skill_forbids_publishing_without_approval(skill_text):
     assert "Never publish without the user's explicit go-ahead" in skill_text
 
 
-def test_skill_forbids_the_yes_flag(skill_text):
-    """--yes bypasses the confirmation prompt; the agent must never pass it."""
-    assert "Never pass `--yes`" in skill_text
+def test_skill_directs_the_agent_to_the_approved_flag(skill_text):
+    """The agent needs a way to publish that doesn't require a terminal.
+
+    Before this existed the skill told the agent to publish *and* forbade the
+    only flag that made publishing possible, which taught it that the rules
+    were approximate.
+    """
+    assert "--approved" in skill_text
+    assert "current turn" in skill_text
+
+
+def test_skill_tells_the_agent_not_to_use_the_human_flag(skill_text):
+    assert "`--yes` is the human's equivalent" in skill_text
 
 
 def test_skill_states_that_replies_are_drafted_not_posted(skill_text):

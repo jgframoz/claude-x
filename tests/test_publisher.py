@@ -198,3 +198,42 @@ def test_partial_thread_failure_reports_what_was_published(live_config, httpx_mo
 
     # The first part really is public; the log must reflect that.
     assert len(PostLog(live_config).all()) == 1
+
+
+# --- Approval provenance ------------------------------------------------
+
+
+def test_the_approval_route_is_recorded(live_config, httpx_mock):
+    """History should be able to answer 'did I approve that, or did an agent?'"""
+    from claude_x.publisher import APPROVAL_RELAYED
+
+    httpx_mock.add_response(url=f"{API_BASE}/tweets", method="POST", json=tweet_response("1"))
+
+    with Publisher(live_config) as publisher:
+        publisher.publish("relayed by an agent", approval=APPROVAL_RELAYED)
+
+    assert PostLog(live_config).all()[0]["approval"] == "agent-relayed"
+
+
+def test_dry_runs_never_claim_an_approval(dry_config):
+    """Nothing was published, so no approval was exercised."""
+    from claude_x.publisher import APPROVAL_NONE, APPROVAL_RELAYED
+
+    with Publisher(dry_config) as publisher:
+        post = publisher.publish("rehearsal", approval=APPROVAL_RELAYED)
+
+    assert post.approval == APPROVAL_NONE
+
+
+def test_every_part_of_a_thread_records_the_approval(live_config, httpx_mock):
+    from claude_x.publisher import APPROVAL_RELAYED
+
+    for tweet_id in ("1", "2"):
+        httpx_mock.add_response(
+            url=f"{API_BASE}/tweets", method="POST", json=tweet_response(tweet_id)
+        )
+
+    with Publisher(live_config) as publisher:
+        posts = publisher.publish_thread(["one", "two"], approval=APPROVAL_RELAYED)
+
+    assert all(post.approval == "agent-relayed" for post in posts)

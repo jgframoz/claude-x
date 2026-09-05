@@ -19,6 +19,16 @@ from .store import JsonlStore
 POSTS_FILENAME = "posts.jsonl"
 
 
+# How the human's approval reached this publish. Recorded so the history can
+# answer "did I actually approve that?" months later. No flag can *prove* the
+# user approved — the caller supplies this — but an audit trail of the claimed
+# route is still worth having, and it makes an agent state its claim explicitly.
+APPROVAL_INTERACTIVE = "interactive"  # a human typed 'post' at the prompt
+APPROVAL_HUMAN_FLAG = "human-flag"  # a human passed --yes themselves
+APPROVAL_RELAYED = "agent-relayed"  # an agent relaying approval given in chat
+APPROVAL_NONE = "none"  # dry run: nothing was published
+
+
 @dataclass(frozen=True)
 class PublishedPost:
     id: str
@@ -28,6 +38,7 @@ class PublishedPost:
     posted_at: str
     dry_run: bool
     in_reply_to: str | None = None
+    approval: str = APPROVAL_NONE
 
 
 class PostLog:
@@ -50,6 +61,7 @@ class PostLog:
                 "posted_at": post.posted_at,
                 "dry_run": post.dry_run,
                 "in_reply_to": post.in_reply_to,
+                "approval": post.approval,
             }
         )
 
@@ -98,8 +110,14 @@ class Publisher:
                 "from X — see the README."
             )
 
-    def publish(self, text: str, *, in_reply_to: str | None = None) -> PublishedPost:
-        """Publish a single post. Assumes approval already happened."""
+    def publish(
+        self,
+        text: str,
+        *,
+        in_reply_to: str | None = None,
+        approval: str = APPROVAL_NONE,
+    ) -> PublishedPost:
+        """Publish a single post. Approval is the caller's to establish."""
         policy.check_length(text)
         policy.check_style(text)
 
@@ -124,11 +142,14 @@ class Publisher:
             posted_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             dry_run=self.config.dry_run,
             in_reply_to=in_reply_to,
+            approval=APPROVAL_NONE if self.config.dry_run else approval,
         )
         self.log.record(post)
         return post
 
-    def publish_thread(self, parts: list[str]) -> list[PublishedPost]:
+    def publish_thread(
+        self, parts: list[str], *, approval: str = APPROVAL_NONE
+    ) -> list[PublishedPost]:
         """Publish parts as a chain, each replying to the one before it.
 
         Every reply target is a post this call just created, so the ownership
@@ -146,7 +167,7 @@ class Publisher:
 
         for index, part in enumerate(parts):
             try:
-                post = self.publish(part, in_reply_to=previous_id)
+                post = self.publish(part, in_reply_to=previous_id, approval=approval)
             except Exception as exc:
                 if published:
                     raise PolicyError(

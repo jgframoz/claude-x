@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from typer.testing import CliRunner
 
 from claude_x import __version__
@@ -68,3 +69,23 @@ def test_entry_point_uses_the_error_handling_wrapper():
     scripts = tomllib.loads(pyproject.read_text())["project"]["scripts"]
 
     assert scripts["claude-x"] == "claude_x.cli:run"
+
+
+def test_publishing_without_a_terminal_refuses_rather_than_hanging(monkeypatch):
+    """A prompt nobody can answer is the worst failure mode here."""
+    monkeypatch.setenv("X_CLIENT_ID", "id")
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+    from claude_x.cli import _establish_approval
+    from claude_x.errors import ClaudeXError
+
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    with pytest.raises(ClaudeXError, match="--approved"):
+        _establish_approval(yes=False, approved=False)
+
+
+def test_approved_and_yes_record_different_routes():
+    from claude_x.cli import _establish_approval
+
+    assert _establish_approval(yes=False, approved=True) == "agent-relayed"
+    assert _establish_approval(yes=True, approved=False) == "human-flag"
