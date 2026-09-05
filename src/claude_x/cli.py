@@ -305,6 +305,13 @@ def history(
         )
     console.print(table)
 
+    live = [record for record in records if not record.get("dry_run")]
+    spent = sum(record.get("cost_usd", 0) for record in live)
+    console.print(
+        f"\n[dim]{len(live)} published, ${spent:.2f} spent on posting "
+        f"(reads are billed separately by X).[/dim]"
+    )
+
 
 def run() -> None:
     """Wrapper that renders deliberate errors without a traceback."""

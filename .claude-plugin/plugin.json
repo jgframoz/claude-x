@@ -1,0 +1,12 @@
+{
+  "name": "claude-x",
+  "version": "0.1.0",
+  "description": "Draft posts for X in your own voice, with human approval before anything publishes.",
+  "author": {
+    "name": "jgframoz",
+    "url": "https://github.com/jgframoz"
+  },
+  "homepage": "https://github.com/jgframoz/claude-x",
+  "license": "MIT",
+  "keywords": ["x", "twitter", "writing", "social"]
+}

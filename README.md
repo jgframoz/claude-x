@@ -74,6 +74,30 @@ claude-x history             # what has been published
 Publishing asks you to type `post` to confirm. `--yes` skips that prompt —
 it exists for your own interactive use, and the Claude Code skill never passes it.
 
+## The Claude Code skill
+
+The point of this project: Claude drafts in your voice, you approve, the CLI
+publishes. The drafting intelligence is your Claude Code session — there is no
+LLM API key here.
+
+Install it for your user account:
+
+```bash
+ln -s "$PWD/skills/claude-x" ~/.claude/skills/claude-x
+```
+
+Then in any Claude Code session — including from your phone via
+`claude remote-control` — just say what you want:
+
+> draft a tweet about the auth flow I just finished
+
+Claude reads [`VOICE.md`](VOICE.md), checks `claude-x history` so it doesn't
+repeat you, and offers two drafts with different angles. Nothing publishes until
+you say so in that same turn.
+
+**`VOICE.md` is the highest-leverage file in this repo.** Every draft is
+downstream of it — edit it until the drafts sound like you.
+
 ## Costs
 
 X moved to pay-per-use pricing in February 2026:
@@ -91,7 +115,7 @@ Development and tests never hit the network.
 - [x] **Phase 0** — scaffolding, config, storage, CLI skeleton, CI
 - [x] **Phase 1** — OAuth 2.0 PKCE auth + X API client
 - [x] **Phase 2** — draft → preview → approve → post, with threads
-- [ ] **Phase 3** — the Claude Code skill (drafting in your voice)
+- [x] **Phase 3** — the Claude Code skill (drafting in your voice)
 - [ ] **Phase 4** — mentions → reply suggestions
 - [ ] **Phase 5** — performance tracking fed back into drafting
 
